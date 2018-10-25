@@ -1555,14 +1555,14 @@ namespace ts {
                         break;
 
                     case SyntaxKind.MethodDeclaration:
-                        statements.push(transformClassMethodDeclarationToStatement(getClassMemberPrefix(node, member), <MethodDeclaration>member, node));
+                        statements.push(transformClassMethodDeclarationToStatement(getClassMemberPrefixAlias(statements, node, member), <MethodDeclaration>member, node));
                         break;
 
                     case SyntaxKind.GetAccessor:
                     case SyntaxKind.SetAccessor:
                         const accessors = getAllAccessorDeclarations(node.members, <AccessorDeclaration>member);
                         if (member === accessors.firstAccessor) {
-                            statements.push(transformAccessorsToStatement(getClassMemberPrefix(node, member), accessors, node));
+                            statements.push(transformAccessorsToStatement(getClassMemberPrefixAlias(statements, node, member), accessors, node));
                         }
 
                         break;
@@ -4302,9 +4302,35 @@ namespace ts {
         }
 
         function getClassMemberPrefix(node: ClassExpression | ClassDeclaration, member: ClassElement) {
-            return hasModifier(member, ModifierFlags.Static)
-                ? getInternalName(node)
+            const isStatic = hasModifier(member, ModifierFlags.Static);
+            let alias = (<any>node)._prefixAlias;
+            if (alias && (alias = alias[(+isStatic & 1)])) {
+              return alias;
+            }
+            return isStatic
+                ? getDeclarationName(node)
                 : createPropertyAccess(getInternalName(node), "prototype");
+        }
+
+        /**
+         * Get class member prefix, add alias variable statement if need.
+         */
+        function getClassMemberPrefixAlias(statements: Statement[], node: ClassExpression | ClassDeclaration, member: ClassElement) {
+            var bit = 1 & +hasModifier(member, ModifierFlags.Static);
+            var aliasVar = (<any>node)._prefixAlias;
+            if (aliasVar && (aliasVar = aliasVar[bit])) {
+                return aliasVar;
+            }
+
+            var tmpVar = createTempVariable(/*recordTempVariable*/ undefined);
+            var statement = createVariableStatement(/*modifiers*/ undefined,
+                createVariableDeclarationList([
+                    createVariableDeclaration(tmpVar, /*type*/ undefined, getClassMemberPrefix(node, member))
+                ])
+            );
+
+            statements.push(statement);
+            return (((<any>node)._prefixAlias = (<any>node)._prefixAlias || [])[bit] = tmpVar);
         }
 
         function hasSynthesizedDefaultSuperCall(constructor: ConstructorDeclaration | undefined, hasExtendsClause: boolean) {
