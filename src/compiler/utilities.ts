@@ -3018,7 +3018,7 @@ namespace ts {
             s;
     }
 
-    const indentStrings: string[] = ["", "    "];
+    const indentStrings: string[] = ["", "  "];
     export function getIndentString(level: number) {
         if (indentStrings[level] === undefined) {
             indentStrings[level] = getIndentString(level - 1) + indentStrings[1];
